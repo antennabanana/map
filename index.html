@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Live world map with real-time day/night terminator">
+  <title>World Map — Live</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Canvas stack (back to front) ─────────────────────────────── -->
+  <div id="map-wrap">
+    <!-- 1. Base map image -->
+    <canvas id="map-canvas"></canvas>
+    <!-- 2. Day/night shadow -->
+    <canvas id="shadow-canvas"></canvas>
+    <!-- 3. Latitude/longitude graticule + named parallels -->
+    <canvas id="graticule-canvas"></canvas>
+    <!-- 4. Timezone boundaries -->
+    <canvas id="timezone-canvas"></canvas>
+    <!-- 5. Country borders + labels (geopolitical mode) -->
+    <canvas id="political-canvas"></canvas>
+  </div>
+
+  <!-- UI overlay ───────────────────────────────────────────────── -->
+  <div id="ui">
+
+    <div id="clock-panel">
+      <div id="utc-time">--:--:-- UTC</div>
+      <div id="local-time">--:--:-- Local</div>
+      <div id="utc-date"></div>
+    </div>
+
+    <!-- Settings button + expandable panel -->
+    <div id="settings-wrap">
+      <button id="btn-settings" class="settings-toggle"
+              aria-expanded="false" aria-controls="settings-panel">
+        Settings <span id="settings-arrow" aria-hidden="true">▾</span>
+      </button>
+
+      <div id="settings-panel" role="menu" aria-hidden="true">
+
+        <!-- MAP LAYER ─────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">MAP LAYER</div>
+          <div class="layer-row">
+            <button class="layer-btn active" data-mode="physical">Physical</button>
+            <button class="layer-btn"        data-mode="political">Geopolitical</button>
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <!-- MAP STYLE ─────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">MAP STYLE</div>
+          <div class="map-options" id="map-options-list">
+
+            <div class="map-option active" data-file="physical.jpg" role="menuitemradio" aria-checked="true" tabindex="0">
+              <div class="map-option-check" aria-hidden="true">◉</div>
+              <div class="map-option-text">
+                <div class="map-option-name">Natural Earth II</div>
+                <div class="map-option-meta">8192 × 4096 · 6.5 MB · Current</div>
+              </div>
+            </div>
+
+            <div class="map-option" data-file="physical_21k.jpg" role="menuitemradio" aria-checked="false" tabindex="0">
+              <div class="map-option-check" aria-hidden="true">○</div>
+              <div class="map-option-text">
+                <div class="map-option-name">Natural Earth II <span class="map-badge">IMAX</span></div>
+                <div class="map-option-meta">21600 × 10800 · ~40 MB · 12K screens</div>
+              </div>
+            </div>
+
+            <div class="map-option" data-file="bluemarble.jpg" role="menuitemradio" aria-checked="false" tabindex="0">
+              <div class="map-option-check" aria-hidden="true">○</div>
+              <div class="map-option-text">
+                <div class="map-option-name">NASA Blue Marble</div>
+                <div class="map-option-meta">8192 × 4096 · 6.3 MB · Photorealistic</div>
+              </div>
+            </div>
+
+            <div class="map-option" data-file="esri_dark_ocean.jpg" role="menuitemradio" aria-checked="false" tabindex="0">
+              <div class="map-option-check" aria-hidden="true">○</div>
+              <div class="map-option-text">
+                <div class="map-option-name">ESRI Physical — Dark Ocean</div>
+                <div class="map-option-meta">8192 × 4096 · 5.1 MB</div>
+              </div>
+            </div>
+
+            <div class="map-option" data-file="physical_original.jpg" role="menuitemradio" aria-checked="false" tabindex="0">
+              <div class="map-option-check" aria-hidden="true">○</div>
+              <div class="map-option-text">
+                <div class="map-option-name">ESRI Physical — Classic</div>
+                <div class="map-option-meta">8192 × 4096 · 4.7 MB · Light ocean</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <!-- OVERLAYS ──────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">OVERLAYS</div>
+          <div class="overlay-list">
+
+            <div class="overlay-row" data-overlay="timezones" tabindex="0" role="switch" aria-checked="false">
+              <div class="overlay-indicator">○</div>
+              <div class="overlay-text">
+                <div class="overlay-name">Timezones</div>
+              </div>
+            </div>
+
+            <div class="overlay-row" data-overlay="named-parallels" tabindex="0" role="switch" aria-checked="false">
+              <div class="overlay-indicator">○</div>
+              <div class="overlay-text">
+                <div class="overlay-name">Named parallels</div>
+                <div class="overlay-sub">Equator · Tropics · Polar circles</div>
+              </div>
+            </div>
+
+            <div class="overlay-row" data-overlay="degree-grid" tabindex="0" role="switch" aria-checked="false">
+              <div class="overlay-indicator">○</div>
+              <div class="overlay-text">
+                <div class="overlay-name">Degree grid</div>
+                <div class="overlay-sub">30° lat / lon lines</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <!-- TERMINATOR STYLE ──────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">TERMINATOR STYLE</div>
+          <div class="layer-row">
+            <button class="layer-btn active" data-term="standard" title="Night side fully shaded">Standard</button>
+            <button class="layer-btn"        data-term="band"     title="Twilight band only — no polar caps">Band</button>
+          </div>
+          <div class="settings-hint" id="term-hint">Twilight band only — polar caps removed</div>
+        </div>
+
+      </div><!-- /settings-panel -->
+    </div><!-- /settings-wrap -->
+
+  </div><!-- /ui -->
+
+  <!-- Attribution ─────────────────────────────────────────────── -->
+  <div id="attribution">
+    Map: Natural Earth II — naturalearthdata.com &nbsp;|&nbsp; Boundaries: Natural Earth
+  </div>
+
+  <!-- Loading screen ──────────────────────────────────────────── -->
+  <div id="loading">
+    <div id="loading-inner">
+      <div id="loading-title">WORLD MAP</div>
+      <div id="loading-text">Loading…</div>
+      <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Libraries ───────────────────────────────────────────────── -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+
+  <!-- Static data as JS globals (works on file:// and http://) ── -->
+  <script src="assets/data/countries.js"></script>
+  <script src="assets/data/timezones.js"></script>
+
+  <!-- Application ─────────────────────────────────────────────── -->
+  <script src="js/solar.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/clock.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
