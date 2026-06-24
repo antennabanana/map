@@ -15,11 +15,13 @@
     <canvas id="map-canvas"></canvas>
     <!-- 2. Day/night shadow -->
     <canvas id="shadow-canvas"></canvas>
-    <!-- 3. Latitude/longitude graticule + named parallels -->
+    <!-- 3. Debug overlay (subsolar point + terminator line) -->
+    <canvas id="debug-canvas"></canvas>
+    <!-- 4. Latitude/longitude graticule + named parallels -->
     <canvas id="graticule-canvas"></canvas>
-    <!-- 4. Timezone boundaries -->
+    <!-- 5. Timezone boundaries -->
     <canvas id="timezone-canvas"></canvas>
-    <!-- 5. Country borders + labels (geopolitical mode) -->
+    <!-- 6. Country borders + labels (geopolitical mode) -->
     <canvas id="political-canvas"></canvas>
   </div>
 
@@ -30,6 +32,11 @@
       <div id="utc-time">--:--:-- UTC</div>
       <div id="local-time">--:--:-- Local</div>
       <div id="utc-date"></div>
+    </div>
+
+    <div id="debug-info">
+      <div id="debug-subsolar">☀ --.--°? ---.--°?</div>
+      <div id="debug-term">⊡ Term max: --.--°</div>
     </div>
 
     <!-- Settings button + expandable panel -->
@@ -43,7 +50,7 @@
 
         <!-- MAP LAYER ─────────────────────────────────────────── -->
         <div class="settings-section">
-          <div class="settings-section-title">MAP LAYER</div>
+          <div class="settings-section-title">MAP LAYER <kbd>p</kbd></div>
           <div class="layer-row">
             <button class="layer-btn active" data-mode="physical">Physical</button>
             <button class="layer-btn"        data-mode="political">Geopolitical</button>
@@ -54,7 +61,7 @@
 
         <!-- MAP STYLE ─────────────────────────────────────────── -->
         <div class="settings-section">
-          <div class="settings-section-title">MAP STYLE</div>
+          <div class="settings-section-title">MAP STYLE <span style="color:rgba(255,255,255,.3);font-weight:normal;letter-spacing:.05em"><kbd>s</kbd> cycle</span></div>
           <div class="map-options" id="map-options-list">
 
             <div class="map-option active" data-file="physical.jpg" role="menuitemradio" aria-checked="true" tabindex="0">
@@ -68,8 +75,8 @@
             <div class="map-option" data-file="physical_21k.jpg" role="menuitemradio" aria-checked="false" tabindex="0">
               <div class="map-option-check" aria-hidden="true">○</div>
               <div class="map-option-text">
-                <div class="map-option-name">Natural Earth II <span class="map-badge">IMAX</span></div>
-                <div class="map-option-meta">21600 × 10800 · ~40 MB · 12K screens</div>
+                <div class="map-option-name">Natural Earth II <span class="map-badge">IMAX</span> <span class="badge-heavy">heavy</span></div>
+                <div class="map-option-meta">21600 × 10800 · ~40 MB · excluded from <kbd>s</kbd></div>
               </div>
             </div>
 
@@ -111,6 +118,7 @@
               <div class="overlay-indicator">○</div>
               <div class="overlay-text">
                 <div class="overlay-name">Timezones</div>
+                <div class="overlay-sub"><kbd>z</kbd> — UTC offset boundaries</div>
               </div>
             </div>
 
@@ -118,7 +126,7 @@
               <div class="overlay-indicator">○</div>
               <div class="overlay-text">
                 <div class="overlay-name">Named parallels</div>
-                <div class="overlay-sub">Equator · Tropics · Polar circles</div>
+                <div class="overlay-sub"><kbd>n</kbd> — Equator · Tropics · Polar circles</div>
               </div>
             </div>
 
@@ -126,7 +134,49 @@
               <div class="overlay-indicator">○</div>
               <div class="overlay-text">
                 <div class="overlay-name">Degree grid</div>
-                <div class="overlay-sub">30° lat / lon lines</div>
+                <div class="overlay-sub"><kbd>g</kbd> — 30° lat / lon lines</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <!-- TWILIGHT ───────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">TWILIGHT ZONES</div>
+          <div class="overlay-list">
+
+            <div class="overlay-row" data-overlay="twilight-bounds" tabindex="0" role="switch" aria-checked="false">
+              <div class="overlay-indicator">○</div>
+              <div class="overlay-text">
+                <div class="overlay-name">Boundary lines</div>
+                <div class="overlay-sub"><kbd>t</kbd> — Dashed lines + <kbd>CIVIL</kbd> <kbd>NAUT</kbd> <kbd>ASTRO</kbd></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- DEBUG ──────────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">DEBUG</div>
+          <div class="overlay-list">
+
+            <div class="overlay-row active" data-overlay="debug-info" tabindex="0" role="switch" aria-checked="true">
+              <div class="overlay-indicator">◉</div>
+              <div class="overlay-text">
+                <div class="overlay-name">Debug window</div>
+                <div class="overlay-sub"><kbd>d</kbd> — subsolar point info</div>
+              </div>
+            </div>
+
+            <div class="overlay-row" data-overlay="terminator-circle" tabindex="0" role="switch" aria-checked="false">
+              <div class="overlay-indicator">○</div>
+              <div class="overlay-text">
+                <div class="overlay-name">Terminator circle</div>
+                <div class="overlay-sub"><kbd>+</kbd> — sun dot + terminator line</div>
               </div>
             </div>
 
@@ -137,7 +187,7 @@
 
         <!-- TERMINATOR STYLE ──────────────────────────────────── -->
         <div class="settings-section">
-          <div class="settings-section-title">TERMINATOR STYLE</div>
+          <div class="settings-section-title">TERMINATOR STYLE <kbd>b</kbd></div>
           <div class="layer-row">
             <button class="layer-btn active" data-term="standard" title="Night side fully shaded">Standard</button>
             <button class="layer-btn"        data-term="band"     title="Twilight band only — no polar caps">Band</button>

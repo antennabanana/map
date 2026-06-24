@@ -1,9 +1,10 @@
 /**
  * renderer.js — Canvas layer manager and rendering pipeline
  *
- * Five stacked <canvas> elements (back → front):
+ * Six stacked <canvas> elements (back → front):
  *   map-canvas       — base map image
  *   shadow-canvas    — day/night + twilight overlay
+ *   debug-canvas     — subsolar point + terminator great circle
  *   graticule-canvas — latitude/longitude reference lines
  *   timezone-canvas  — timezone boundaries
  *   political-canvas — country borders + labels
@@ -14,6 +15,7 @@
  *   Renderer.setMapImage(img)
  *   Renderer.setOverlay(name, visible)   name: 'timezones' | 'named-parallels' | 'degree-grid'
  *   Renderer.setTerminatorMode('standard' | 'band')
+ *   Renderer.setDebugOverlay(visible)
  */
 const Renderer = (() => {
   'use strict';
@@ -21,6 +23,7 @@ const Renderer = (() => {
   // ── Canvases & contexts ─────────────────────────────────────────
   let mapCanvas, mapCtx;
   let shadowCanvas, shadowCtx;
+  let debugCanvas, debugCtx;
   let graticuleCanvas, graticuleCtx;
   let timezoneCanvas, timezoneCtx;
   let politicalCanvas, politicalCtx;
@@ -44,8 +47,10 @@ const Renderer = (() => {
     'timezones':       false,
     'named-parallels': false,
     'degree-grid':     false,
+    'twilight-bounds': false,
   };
   let shadowTimer = null;
+  let debugVisible = false;
 
   // Named parallels — computed from current solar obliquity
   // These are effectively constant (~23.43°) for any given year.
@@ -79,7 +84,7 @@ const Renderer = (() => {
     canvasW = Math.round(cssW * DPR);
     canvasH = Math.round(cssH * DPR);
 
-    [mapCanvas, shadowCanvas, graticuleCanvas, timezoneCanvas, politicalCanvas].forEach(c => {
+    [mapCanvas, shadowCanvas, debugCanvas, graticuleCanvas, timezoneCanvas, politicalCanvas].forEach(c => {
       c.width = canvasW; c.height = canvasH;
       c.style.width = cssW + 'px'; c.style.height = cssH + 'px';
     });
@@ -92,6 +97,8 @@ const Renderer = (() => {
 
     drawMap();
     drawShadow();
+    if (debugVisible) drawDebugOverlay();
+    if (overlays['twilight-bounds']) drawTwilightBounds(Solar.getSubsolarPoint(new Date()));
     if (overlays['named-parallels'] || overlays['degree-grid']) drawGraticule();
     if (overlays['timezones'])                                   drawTimezones();
     if (currentMode === 'political')                             drawPolitical();
@@ -122,8 +129,86 @@ const Renderer = (() => {
     shadowCtx.clearRect(0, 0, canvasW, canvasH);
     shadowCtx.putImageData(imageData, mapX, mapY);
 
+    if (overlays['twilight-bounds']) drawTwilightBounds(sub);
+
     if (!shadowCanvas.classList.contains('visible'))
       shadowCanvas.classList.add('visible');
+  }
+
+  // ── drawTwilightBounds ───────────────────────────────────────────
+  function drawTwilightBounds(sub) {
+    const DEG = Math.PI / 180;
+    const SIN_CIVIL    = Math.sin(6 * DEG);
+    const SIN_NAUTICAL = Math.sin(12 * DEG);
+    const SIN_ASTRO    = Math.sin(18 * DEG);
+    const sinDec = Math.sin(sub.decRad);
+    const cosDec = Math.cos(sub.decRad);
+    if (cosDec < 0.01) return;
+    const sunLonDeg = sub.lon;
+
+    const boundaries = [
+      { threshold: 0,          color: 'rgba(0,200,200,0.50)',  dash: [4,4], label: null },
+      { threshold: -SIN_CIVIL, color: 'rgba(60,160,255,0.50)', dash: [6,4], label: null },
+      { threshold: -SIN_NAUTICAL, color: 'rgba(120,100,255,0.50)', dash: [6,4], label: null },
+      { threshold: -SIN_ASTRO, color: 'rgba(200,80,220,0.50)', dash: [6,4], label: null },
+    ];
+
+    shadowCtx.save();
+    shadowCtx.translate(mapX, mapY);
+
+    for (const b of boundaries) {
+      const C = b.threshold;
+      const pts = [];
+
+      for (let lon = -180; lon <= 180; lon += 0.5) {
+        const dLon = lon - sunLonDeg;
+        const dLonRad = dLon * DEG;
+        const A = sinDec;
+        const B = cosDec * Math.cos(dLonRad);
+        const R = Math.sqrt(A * A + B * B);
+        const C_OVER_R = C / R;
+        if (Math.abs(C_OVER_R) > 1) continue;
+        const phi = Math.atan2(B, A);
+        const latRad = Math.asin(C_OVER_R) - phi;
+        const latDeg = latRad / DEG;
+        pts.push({ x: lonToX(lon), y: latToY(latDeg) });
+      }
+
+      if (pts.length < 2) continue;
+      shadowCtx.beginPath();
+      shadowCtx.strokeStyle = b.color;
+      shadowCtx.lineWidth = Math.max(1, 1.2 * DPR);
+      shadowCtx.setLineDash(b.dash.map(d => d * DPR));
+      shadowCtx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) shadowCtx.lineTo(pts[i].x, pts[i].y);
+      shadowCtx.stroke();
+      shadowCtx.setLineDash([]);
+    }
+
+    // ── Labels at zone centers ──────────────────────────────────────
+    const dLons = [
+      { dLon: Math.acos(-SIN_CIVIL    / (2 * cosDec)), text: 'CIVIL'  },
+      { dLon: Math.acos(-(SIN_CIVIL + SIN_NAUTICAL) / (2 * cosDec)), text: 'NAUT'  },
+      { dLon: Math.acos(-(SIN_NAUTICAL + SIN_ASTRO) / (2 * cosDec)), text: 'ASTRO' },
+    ];
+
+    const fSz = Math.round(9 * DPR);
+    shadowCtx.font = `${fSz}px "Courier New", monospace`;
+    shadowCtx.textAlign = 'center';
+    shadowCtx.textBaseline = 'middle';
+    const ly = latToY(0);
+
+    for (const z of dLons) {
+      for (const sign of [-1, 1]) {
+        const lon = sunLonDeg + sign * z.dLon / DEG;
+        const lx = lonToX(lon);
+        if (lx < 0 || lx > mapW || ly < 0 || ly > mapH) continue;
+        shadowCtx.fillStyle = 'rgba(220,230,240,0.75)';
+        shadowCtx.fillText(z.text, lx, ly);
+      }
+    }
+
+    shadowCtx.restore();
   }
 
   // ── drawGraticule ─────────────────────────────────────────────────
@@ -141,32 +226,34 @@ const Renderer = (() => {
 
       graticuleCtx.beginPath();
       pathGen(grid);
-      graticuleCtx.lineWidth   = Math.max(0.6, 0.7 * DPR);
-      graticuleCtx.strokeStyle = 'rgba(255,255,255,0.35)';
+      graticuleCtx.lineWidth   = Math.max(0.8, 1.0 * DPR);
+      graticuleCtx.strokeStyle = 'rgba(255,255,255,0.55)';
       graticuleCtx.setLineDash([6 * DPR, 8 * DPR]);
       graticuleCtx.stroke();
       graticuleCtx.setLineDash([]);
 
       // Degree labels every 30° on the left and bottom edges
-      const fSz = Math.round(8 * DPR);
+      const fSz = Math.round(9.5 * DPR);
       graticuleCtx.font = `${fSz}px "Courier New", monospace`;
-      graticuleCtx.fillStyle   = 'rgba(255,255,255,0.32)';
       graticuleCtx.textAlign   = 'left';
       graticuleCtx.textBaseline = 'middle';
 
       for (let lat = -60; lat <= 60; lat += 30) {
-        if (lat === 0) continue; // Equator drawn below with name
+        if (lat === 0) continue;
         const y = latToY(lat);
         if (y < 0 || y > mapH) continue;
-        graticuleCtx.fillText(`${Math.abs(lat)}°${lat>0?'N':'S'}`, 4 * DPR, y);
+        const label = `${Math.abs(lat)}°${lat>0?'N':'S'}`;
+        graticuleCtx.fillStyle = 'rgba(120,220,160,0.85)';
+        graticuleCtx.fillText(label, 4 * DPR, y);
       }
       graticuleCtx.textAlign = 'center';
       graticuleCtx.textBaseline = 'bottom';
       for (let lon = -150; lon <= 180; lon += 30) {
-        if (lon === 0) continue; // Prime Meridian drawn below
+        if (lon === 0) continue;
         const x = lonToX(lon);
         if (x < 0 || x > mapW) continue;
         const label = lon < 0 ? `${-lon}°W` : `${lon}°E`;
+        graticuleCtx.fillStyle = 'rgba(120,220,160,0.85)';
         graticuleCtx.fillText(label, x, mapH - 4 * DPR);
       }
     }
@@ -207,11 +294,6 @@ const Renderer = (() => {
         graticuleCtx.textBaseline = p.lat >= 0 ? 'bottom' : 'top';
         const vOff = p.lat >= 0 ? -2 * DPR : 2 * DPR;
 
-        // Halo
-        graticuleCtx.lineWidth   = 3 * DPR;
-        graticuleCtx.strokeStyle = 'rgba(0,0,0,0.85)';
-        graticuleCtx.font = `${p.weight === 'bold' ? 'bold ' : ''}${fontSize}px "Courier New", monospace`;
-        graticuleCtx.strokeText(label, mapW - pad, y + vOff);
         // Text
         graticuleCtx.fillStyle = p.color;
         graticuleCtx.fillText(label, mapW - pad, y + vOff);
@@ -230,9 +312,6 @@ const Renderer = (() => {
       // Prime Meridian label
       graticuleCtx.font = `${Math.round(9 * DPR)}px "Courier New", monospace`;
       graticuleCtx.textAlign = 'left'; graticuleCtx.textBaseline = 'top';
-      graticuleCtx.lineWidth   = 2.5 * DPR;
-      graticuleCtx.strokeStyle = 'rgba(0,0,0,0.85)';
-      graticuleCtx.strokeText('Prime Meridian  0°', xPM + 3 * DPR, 4 * DPR);
       graticuleCtx.fillStyle = 'rgba(160,200,160,0.80)';
       graticuleCtx.fillText('Prime Meridian  0°', xPM + 3 * DPR, 4 * DPR);
     }
@@ -256,8 +335,8 @@ const Renderer = (() => {
     // Draw timezone borders
     timezoneCtx.beginPath();
     pathGen(timezonesGeo);
-    timezoneCtx.lineWidth   = Math.max(0.4, 0.5 * DPR);
-    timezoneCtx.strokeStyle = 'rgba(255,200,80,0.45)';
+    timezoneCtx.lineWidth   = Math.max(0.6, 0.8 * DPR);
+    timezoneCtx.strokeStyle = 'rgba(255,100,100,0.65)';
     timezoneCtx.lineJoin    = 'round';
     timezoneCtx.stroke();
 
@@ -283,11 +362,11 @@ const Renderer = (() => {
 
       const label = zone >= 0 ? `UTC+${zone}` : `UTC${zone}`;
       // Halo
-      timezoneCtx.lineWidth   = 2.5 * DPR;
-      timezoneCtx.strokeStyle = 'rgba(0,0,0,0.80)';
+      timezoneCtx.lineWidth   = 3 * DPR;
+      timezoneCtx.strokeStyle = 'rgba(0,0,0,0.85)';
       timezoneCtx.strokeText(label, cx, cy);
       // Fill
-      timezoneCtx.fillStyle = 'rgba(255,210,100,0.75)';
+      timezoneCtx.fillStyle = 'rgba(255,130,130,0.90)';
       timezoneCtx.fillText(label, cx, cy);
     }
 
@@ -295,6 +374,83 @@ const Renderer = (() => {
 
     if (!timezoneCanvas.classList.contains('visible'))
       timezoneCanvas.classList.add('visible');
+  }
+
+  // ── drawDebugOverlay ──────────────────────────────────────────────
+  function drawDebugOverlay() {
+    debugCtx.clearRect(0, 0, canvasW, canvasH);
+    if (!debugVisible) return;
+
+    const sub = Solar.getSubsolarPoint(new Date());
+    const sunLonDeg = sub.lon;
+    const decRad = sub.decRad;
+
+    debugCtx.save();
+    debugCtx.translate(mapX, mapY);
+
+    // ── Subsolar point (red dot + glow) ──────────────────────────
+    const sx = lonToX(sunLonDeg);
+    const sy = latToY(sub.lat);
+
+    const glow = debugCtx.createRadialGradient(sx, sy, 0, sx, sy, 22 * DPR);
+    glow.addColorStop(0, 'rgba(255,60,60,0.50)');
+    glow.addColorStop(1, 'rgba(255,60,60,0)');
+    debugCtx.fillStyle = glow;
+    debugCtx.beginPath();
+    debugCtx.arc(sx, sy, 22 * DPR, 0, 2 * Math.PI);
+    debugCtx.fill();
+
+    debugCtx.fillStyle = '#ff3333';
+    debugCtx.beginPath();
+    debugCtx.arc(sx, sy, 4 * DPR, 0, 2 * Math.PI);
+    debugCtx.fill();
+
+    // ── Antipode dot ─────────────────────────────────────────────
+    const aLon = sunLonDeg + (sunLonDeg > 0 ? -180 : 180);
+    const aLat = -sub.lat;
+    const ax = lonToX(aLon);
+    const ay = latToY(aLat);
+    debugCtx.fillStyle = 'rgba(255,100,100,0.35)';
+    debugCtx.beginPath();
+    debugCtx.arc(ax, ay, 2.5 * DPR, 0, 2 * Math.PI);
+    debugCtx.fill();
+
+    // ── Terminator great circle (dashed red line) ───────────────
+    if (Math.abs(decRad) > 0.001) {
+      const tanDec = Math.tan(decRad);
+      const step = 1;
+      const points = [];
+
+      for (let lon = -180; lon <= 180; lon += step) {
+        let dLon = lon - sunLonDeg;
+        if (dLon > 180) dLon -= 360;
+        if (dLon < -180) dLon += 360;
+        const dLonRad = dLon * Math.PI / 180;
+
+        const ratio = Math.cos(dLonRad) / tanDec;
+        const latDeg = Math.atan(-ratio) * 180 / Math.PI;
+
+        points.push({ x: lonToX(lon), y: latToY(latDeg) });
+      }
+
+      debugCtx.beginPath();
+      debugCtx.strokeStyle = 'rgba(255,80,80,0.65)';
+      debugCtx.lineWidth = Math.max(1.2, 1.5 * DPR);
+      debugCtx.setLineDash([8 * DPR, 5 * DPR]);
+
+      let first = true;
+      for (const p of points) {
+        if (first) { debugCtx.moveTo(p.x, p.y); first = false; }
+        else       { debugCtx.lineTo(p.x, p.y); }
+      }
+      debugCtx.stroke();
+      debugCtx.setLineDash([]);
+    }
+
+    debugCtx.restore();
+
+    if (!debugCanvas.classList.contains('visible'))
+      debugCanvas.classList.add('visible');
   }
 
   // ── drawPolitical ─────────────────────────────────────────────────
@@ -364,12 +520,14 @@ const Renderer = (() => {
 
     mapCanvas       = document.getElementById('map-canvas');
     shadowCanvas    = document.getElementById('shadow-canvas');
+    debugCanvas     = document.getElementById('debug-canvas');
     graticuleCanvas = document.getElementById('graticule-canvas');
     timezoneCanvas  = document.getElementById('timezone-canvas');
     politicalCanvas = document.getElementById('political-canvas');
 
     mapCtx       = mapCanvas.getContext('2d', {alpha: false});
     shadowCtx    = shadowCanvas.getContext('2d');
+    debugCtx     = debugCanvas.getContext('2d');
     graticuleCtx = graticuleCanvas.getContext('2d');
     timezoneCtx  = timezoneCanvas.getContext('2d');
     politicalCtx = politicalCanvas.getContext('2d');
@@ -425,6 +583,14 @@ const Renderer = (() => {
       }
     }
 
+    if (name === 'twilight-bounds') {
+      if (visible) {
+        drawShadow();
+      } else {
+        drawShadow();
+      }
+    }
+
     if (name === 'timezones') {
       if (visible) {
         timezoneCanvas.style.display = 'block';
@@ -442,6 +608,18 @@ const Renderer = (() => {
     drawShadow();
   }
 
-  return { init, setMode, setMapImage, setOverlay, setTerminatorMode };
+  /** Toggle the debug overlay (subsolar point + terminator line). */
+  function setDebugOverlay(visible) {
+    debugVisible = visible;
+    if (visible) {
+      debugCanvas.style.display = 'block';
+      requestAnimationFrame(() => drawDebugOverlay());
+    } else {
+      debugCanvas.classList.remove('visible');
+      setTimeout(() => { debugCanvas.style.display = 'none'; }, 100);
+    }
+  }
+
+  return { init, setMode, setMapImage, setOverlay, setTerminatorMode, setDebugOverlay };
 
 })();

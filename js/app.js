@@ -45,6 +45,8 @@
   let currentTerm     = 'standard';
   let settingsOpen    = false;
   let mapSwitching    = false;
+  let debugOverlayOn  = false;
+  let debugInfoOn     = true;
 
   // ── Helpers ──────────────────────────────────────────────────────
   function setLoadingText(msg) { loadingText.textContent = msg; }
@@ -149,6 +151,10 @@
     currentMapFile = file;
     Renderer.setMapImage(img);
     updateAttribution(file);
+    // Sync style cycle index
+    const idx = MAP_CATALOGUE.findIndex(m => m.file === file);
+    styleIndex = STYLE_CYCLE.indexOf(idx);
+    if (styleIndex < 0) styleIndex = 0;
     closeSettings();
     mapSwitching = false;
   }
@@ -166,7 +172,17 @@
     row.setAttribute('aria-checked', visible ? 'true' : 'false');
     const ind = row.querySelector('.overlay-indicator');
     if (ind) ind.textContent = visible ? '◉' : '○';
-    Renderer.setOverlay(name, visible);
+
+    if (name === 'debug-info') {
+      debugInfoOn = visible;
+      const el = document.getElementById('debug-info');
+      if (el) el.classList.toggle('hidden', !visible);
+    } else if (name === 'terminator-circle') {
+      debugOverlayOn = visible;
+      Renderer.setDebugOverlay(visible);
+    } else {
+      Renderer.setOverlay(name, visible);
+    }
   }
 
   overlayRows.forEach(row => {
@@ -194,7 +210,45 @@
     if (e.key === 'b' || e.key === 'B') {
       activateTerminator(currentTerm === 'standard' ? 'band' : 'standard');
     }
+    if (e.key === 'z' || e.key === 'Z') {
+      const row = document.querySelector('.overlay-row[data-overlay="timezones"]');
+      if (row) toggleOverlay(row);
+    }
+    if (e.key === 't' || e.key === 'T') {
+      const row = document.querySelector('.overlay-row[data-overlay="twilight-bounds"]');
+      if (row) toggleOverlay(row);
+    }
+    if (e.key === 'n' || e.key === 'N') {
+      const row = document.querySelector('.overlay-row[data-overlay="named-parallels"]');
+      if (row) toggleOverlay(row);
+    }
+    if (e.key === 'g' || e.key === 'G') {
+      const row = document.querySelector('.overlay-row[data-overlay="degree-grid"]');
+      if (row) toggleOverlay(row);
+    }
+    if (e.key === '+' || e.key === '=') {
+      const row = document.querySelector('.overlay-row[data-overlay="terminator-circle"]');
+      if (row) toggleOverlay(row);
+    }
+    if (e.key === 'd' || e.key === 'D') {
+      const row = document.querySelector('.overlay-row[data-overlay="debug-info"]');
+      if (row) toggleOverlay(row);
+    }
+    if (e.key === 's' || e.key === 'S') {
+      cycleMapStyle();
+    }
   });
+
+  // ── Map style cycling (s key, excludes IMAX) ──────────────────────
+  const STYLE_CYCLE = [0, 2, 3, 4]; // indices into MAP_CATALOGUE, skipping physical_21k
+  let styleIndex = 0;
+
+  function cycleMapStyle() {
+    styleIndex = (styleIndex + 1) % STYLE_CYCLE.length;
+    const file = MAP_CATALOGUE[STYLE_CYCLE[styleIndex]].file;
+    const el = document.querySelector(`.map-option[data-file="${file}"]`);
+    if (el && !el.classList.contains('unavailable')) activateMapStyle(el);
+  }
 
   // ── Boot ──────────────────────────────────────────────────────────
   setLoadingText('Loading map image…');
