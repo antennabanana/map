@@ -405,15 +405,16 @@ const Renderer = (() => {
     debugCtx.arc(sx, sy, 4 * DPR, 0, 2 * Math.PI);
     debugCtx.fill();
 
-    // ── Antipode dot ─────────────────────────────────────────────
-    const aLon = sunLonDeg + (sunLonDeg > 0 ? -180 : 180);
-    const aLat = -sub.lat;
-    const ax = lonToX(aLon);
-    const ay = latToY(aLat);
-    debugCtx.fillStyle = 'rgba(255,100,100,0.35)';
-    debugCtx.beginPath();
-    debugCtx.arc(ax, ay, 2.5 * DPR, 0, 2 * Math.PI);
-    debugCtx.fill();
+    // ── ☀ label ─────────────────────────────────────────────────
+    const lblSz = Math.round(10 * DPR);
+    debugCtx.font = `${lblSz}px "Courier New", monospace`;
+    debugCtx.textAlign = 'left';
+    debugCtx.textBaseline = 'bottom';
+    debugCtx.lineWidth = 1.5 * DPR;
+    debugCtx.strokeStyle = 'rgba(0,0,0,0.85)';
+    debugCtx.strokeText('☀  Sun', sx + 6 * DPR, sy - 2 * DPR);
+    debugCtx.fillStyle = '#ffcc44';
+    debugCtx.fillText('☀  Sun', sx + 6 * DPR, sy - 2 * DPR);
 
     // ── Terminator great circle (dashed red line) ───────────────
     if (Math.abs(decRad) > 0.001) {
