@@ -177,6 +177,8 @@
       debugInfoOn = visible;
       const el = document.getElementById('debug-info');
       if (el) el.classList.toggle('hidden', !visible);
+    } else if (name === 'inclination') {
+      Inclination.setVisible(visible);
     } else if (name === 'terminator-circle') {
       debugOverlayOn = visible;
       Renderer.setDebugOverlay(visible);
@@ -237,6 +239,10 @@
     if (e.key === 's' || e.key === 'S') {
       cycleMapStyle();
     }
+    if (e.key === 'm' || e.key === 'M') {
+      const row = document.querySelector('.overlay-row[data-overlay="inclination"]');
+      if (row) toggleOverlay(row);
+    }
   });
 
   // ── Map style cycling (s key, excludes IMAX) ──────────────────────
@@ -254,6 +260,7 @@
   setLoadingText('Loading map image…');
   setLoadingBar(10);
   Clock.init();
+  Inclination.init();
 
   const [mapImage, countries, timezones] = await Promise.all([
     loadImage(MAPS_BASE + currentMapFile).then(img => { setLoadingBar(45); return img; }),
@@ -266,6 +273,7 @@
   await new Promise(resolve => requestAnimationFrame(resolve));
 
   Renderer.init(mapImage, countries, timezones);
+  Inclination.setData(countries);
   setLoadingBar(100);
 
   // Disable Geopolitical if no countries data

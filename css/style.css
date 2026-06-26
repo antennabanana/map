@@ -221,3 +221,13 @@ html, body {
 #loading-bar-wrap { width:clamp(140px,20vw,280px); height:2px; background:rgba(255,255,255,.08); border-radius:2px; overflow:hidden; }
 #loading-bar  { height:100%; width:0%; background:rgba(255,255,255,.55); border-radius:2px; transition:width .3s ease; }
 @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:.9} }
+
+/* ── Inclination diagram ─────────────────────────────────────── */
+#inclination-panel {
+  position:fixed; bottom:clamp(10px,1.5vw,22px); left:clamp(12px,2vw,28px);
+  z-index:90; pointer-events:none;
+}
+#inclination-canvas {
+  display:block; width:260px; height:260px;
+  border-radius:6px;
+}
