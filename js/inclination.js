@@ -276,7 +276,7 @@ const Inclination = (() => {
       canvas.style.height = size + 'px';
     }
     ctx = canvas.getContext('2d');
-    ctx.scale(DPR, DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
 
   // ── Public API ───────────────────────────────────────────────────
