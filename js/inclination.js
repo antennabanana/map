@@ -34,7 +34,7 @@ const Inclination = (() => {
     const cy = size * 0.50;
 
     proj = d3.geoOrthographic()
-      .rotate([sub.lon - 90, 0, sub.lat])
+      .rotate([sub.lon - 90, 0])
       .fitSize([R * 2 * 0.97, R * 2 * 0.97], { type: 'Sphere' })
       .translate([cx, cy]);
 
@@ -75,6 +75,13 @@ const Inclination = (() => {
     ctx.textBaseline = 'top';
     ctx.fillText('EARTH INCLINATION', cx, 6 * DPR);
 
+    // ── Rotate canvas to show Earth's axial tilt ───────────────────
+    // Matches reference: transform:rotate(Declination deg)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(decRad);
+    ctx.translate(-cx, -cy);
+
     // ── Day/night shading (clip to sphere) ─────────────────────────
     ctx.save();
     ctx.beginPath();
@@ -89,7 +96,7 @@ const Inclination = (() => {
     grad.addColorStop(0.6, 'rgba(0,5,22,0.25)');
     grad.addColorStop(1.0, 'rgba(0,5,22,0.55)');
     ctx.fillStyle = grad;
-    ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    ctx.fillRect(cx - R * 1.5, cy - R * 1.5, R * 3, R * 3);
 
     ctx.restore();
 
@@ -100,7 +107,6 @@ const Inclination = (() => {
       pathFn({ type: 'Sphere' });
       ctx.clip();
 
-      // Land fill
       ctx.fillStyle = 'rgba(140,180,120,0.40)';
       for (const feat of countriesGeo.features) {
         ctx.beginPath();
@@ -108,7 +114,6 @@ const Inclination = (() => {
         ctx.fill();
       }
 
-      // Land stroke
       ctx.strokeStyle = 'rgba(140,180,120,0.55)';
       ctx.lineWidth = Math.max(0.5, 0.6 * DPR);
       for (const feat of countriesGeo.features) {
@@ -177,7 +182,7 @@ const Inclination = (() => {
     ctx.beginPath(); pathFn(polarSouth); ctx.stroke();
     ctx.setLineDash([]);
 
-    // ── Axis line (tilted by declination to show Earth's incline) ──
+    // ── Axis line ──────────────────────────────────────────────────
     const np = proj([sub.lon - 90,  90]);
     const sp = proj([sub.lon - 90, -90]);
 
@@ -231,6 +236,9 @@ const Inclination = (() => {
       ctx.arc(ss[0], ss[1], 2.5 * DPR, 0, 2 * Math.PI);
       ctx.fill();
     }
+
+    // ── End of rotated section ─────────────────────────────────────
+    ctx.restore();
 
     // ── Subtitle ───────────────────────────────────────────────────
     const ns = decDeg >= 0 ? 'N' : 'S';
@@ -286,18 +294,23 @@ const Inclination = (() => {
 
   function isVisible() { return visible; }
 
+  function refresh() {
+    resize();
+    draw();
+  }
+
   function init() {
     canvas = document.getElementById('inclination-canvas');
     if (!canvas) return;
 
-    resize();
-    draw();
+    refresh();
 
     timerId = setInterval(draw, 60000);
-    window.addEventListener('resize', function() {
-      resize();
-      draw();
-    });
+    window.addEventListener('resize', refresh);
+
+    // Fullscreen API (F11 may fire this in some browsers; covers programmatic fullscreen)
+    document.addEventListener('fullscreenchange', refresh);
+    document.addEventListener('webkitfullscreenchange', refresh);
   }
 
   function destroy() {

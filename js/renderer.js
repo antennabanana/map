@@ -541,6 +541,9 @@ const Renderer = (() => {
       resizeTimer = setTimeout(resize, 180);
     });
 
+    document.addEventListener('fullscreenchange', () => resize());
+    document.addEventListener('webkitfullscreenchange', () => resize());
+
     startShadowLoop();
   }
 
