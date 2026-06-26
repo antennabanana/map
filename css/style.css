@@ -51,6 +51,18 @@ html, body {
 #local-time{ font-size: clamp(11px,1.1vw,18px);  color: #b0c8a8; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
 #utc-date  { font-size: clamp(10px,0.9vw,15px);  color: #c0c8b4; margin-top:2px; letter-spacing:.08em; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
 
+#timesync-status {
+  font-size: clamp(8px,0.7vw,11px);
+  margin-top: 3px;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 3px rgba(0,0,0,.9);
+}
+#timesync-status .sync-dot { display:inline-block; width:8px; text-align:center; }
+#timesync-status .sync-dot.pending { color: rgba(255,255,255,.25); }
+#timesync-status .sync-dot.ready   { color: #33ddcc; }
+#timesync-status .sync-label { color: rgba(255,255,255,.30); }
+#timesync-status.ready .sync-label { color: rgba(255,255,255,.40); }
+
 #debug-info {
   pointer-events: none;
   background: rgba(0,0,0,0.55);

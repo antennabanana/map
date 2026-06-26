@@ -1,8 +1,7 @@
 /**
  * clock.js — UTC and local time display
  *
- * Updates the DOM elements #utc-time, #local-time, #utc-date
- * every second using the browser's Date API.  No server calls.
+ * Uses TimeSync.now() for synced UTC time with fallback to local.
  *
  * Public API:
  *   Clock.init()
@@ -16,6 +15,7 @@ const Clock = (() => {
   let utcDateEl  = null;
   let debugSubEl = null;
   let debugTermEl = null;
+  let syncStatusEl = null;
   let timerId    = null;
 
   const MONTHS = [
@@ -32,19 +32,16 @@ const Clock = (() => {
   }
 
   function tick() {
-    const now = new Date();
+    const now = TimeSync.now();
 
-    // UTC time
     const utcH = now.getUTCHours();
     const utcM = now.getUTCMinutes();
     const utcS = now.getUTCSeconds();
     utcTimeEl.textContent = formatHMS(utcH, utcM, utcS) + ' UTC';
 
-    // Local time with timezone abbreviation (best-effort)
     const locH = now.getHours();
     const locM = now.getMinutes();
     const locS = now.getSeconds();
-    // Try to extract short timezone name from Intl API
     let tzLabel = 'Local';
     try {
       const parts = new Intl.DateTimeFormat('en', {
@@ -52,18 +49,16 @@ const Clock = (() => {
       }).formatToParts(now);
       const tzPart = parts.find(p => p.type === 'timeZoneName');
       if (tzPart) tzLabel = tzPart.value;
-    } catch (_) { /* Intl not available */ }
+    } catch (_) {}
 
     localTimeEl.textContent = formatHMS(locH, locM, locS) + ' ' + tzLabel;
 
-    // UTC date line (updates naturally as H:M:S crosses midnight)
     const day  = DAYS[now.getUTCDay()];
     const date = pad2(now.getUTCDate());
     const mon  = MONTHS[now.getUTCMonth()];
     const yr   = now.getUTCFullYear();
     utcDateEl.textContent = `${day} ${date} ${mon} ${yr}`;
 
-    // Debug info — subsolar position + terminator range
     if (debugSubEl && debugTermEl) {
       const sub = Solar.getSubsolarPoint(now);
       const ns = sub.lat >= 0 ? 'N' : 'S';
@@ -74,16 +69,36 @@ const Clock = (() => {
         `☀ ${Math.abs(sub.lat).toFixed(1)}°${ns} ${Math.abs(sub.lon).toFixed(1)}°${ew}`;
       debugTermEl.textContent = `⊡ Term max: ${maxLat.toFixed(1)}°${maxNs}`;
     }
+
+    if (syncStatusEl) {
+      if (TimeSync.isSynced()) {
+        var src = TimeSync.getSource();
+        var off = TimeSync.getOffset();
+        var offStr = off >= 0 ? '+' + off : '' + off;
+        syncStatusEl.className = 'ready';
+        syncStatusEl.innerHTML =
+          '<span class="sync-dot ready">●</span>' +
+          '<span class="sync-label">' + src + ' · ' + offStr + ' ms</span>';
+      } else {
+        syncStatusEl.className = '';
+        syncStatusEl.innerHTML =
+          '<span class="sync-dot pending">○</span>' +
+          '<span class="sync-label">Time sync&hellip;</span>';
+      }
+    }
   }
 
   function init() {
-    utcTimeEl   = document.getElementById('utc-time');
-    localTimeEl = document.getElementById('local-time');
-    utcDateEl   = document.getElementById('utc-date');
-    debugSubEl  = document.getElementById('debug-subsolar');
-    debugTermEl = document.getElementById('debug-term');
+    utcTimeEl    = document.getElementById('utc-time');
+    localTimeEl  = document.getElementById('local-time');
+    utcDateEl    = document.getElementById('utc-date');
+    debugSubEl   = document.getElementById('debug-subsolar');
+    debugTermEl  = document.getElementById('debug-term');
+    syncStatusEl = document.getElementById('timesync-status');
 
-    tick(); // immediate first draw, no blank flash
+    TimeSync.init();
+
+    tick();
     timerId = setInterval(tick, 1000);
   }
 

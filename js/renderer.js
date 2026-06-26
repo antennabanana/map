@@ -98,7 +98,7 @@ const Renderer = (() => {
     drawMap();
     drawShadow();
     if (debugVisible) drawDebugOverlay();
-    if (overlays['twilight-bounds']) drawTwilightBounds(Solar.getSubsolarPoint(new Date()));
+    if (overlays['twilight-bounds']) drawTwilightBounds(Solar.getSubsolarPoint(TimeSync.now()));
     if (overlays['named-parallels'] || overlays['degree-grid']) drawGraticule();
     if (overlays['timezones'])                                   drawTimezones();
     if (currentMode === 'political')                             drawPolitical();
@@ -120,7 +120,7 @@ const Renderer = (() => {
 
   // ── drawShadow ────────────────────────────────────────────────────
   function drawShadow() {
-    const sub  = Solar.getSubsolarPoint(new Date());
+    const sub  = Solar.getSubsolarPoint(TimeSync.now());
     const sw = Math.max(2, mapW);
     const sh = Math.max(2, mapH);
 
@@ -381,7 +381,7 @@ const Renderer = (() => {
     debugCtx.clearRect(0, 0, canvasW, canvasH);
     if (!debugVisible) return;
 
-    const sub = Solar.getSubsolarPoint(new Date());
+    const sub = Solar.getSubsolarPoint(TimeSync.now());
     const sunLonDeg = sub.lon;
     const decRad = sub.decRad;
 
