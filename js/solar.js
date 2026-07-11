@@ -38,9 +38,9 @@ const Solar = (() => {
   // Shadow opacity at each zone boundary.
   // NIGHT_ALPHA = 184 (72 % of 255) is the maximum — full night.
   // Intermediate values create four perceptually distinct bands.
-  const ALPHA_CIVIL    = Math.round(NIGHT_ALPHA * 0.32);  //  59 — visible blue haze
-  const ALPHA_NAUTICAL = Math.round(NIGHT_ALPHA * 0.57);  // 105 — clearly dusky
-  const ALPHA_ASTRO    = Math.round(NIGHT_ALPHA * 0.80);  // 147 — dark, stars visible
+  const ALPHA_CIVIL    = Math.round(NIGHT_ALPHA * 0.93);  // 171 — visible blue haze
+  const ALPHA_NAUTICAL = Math.round(NIGHT_ALPHA * 0.97);  // 178 — clearly dusky
+  const ALPHA_ASTRO    = Math.round(NIGHT_ALPHA * 0.99);  // 182 — dark, stars visible
   // Full night → NIGHT_ALPHA = 184 — deepest shadow
 
   /* ─────────────────────────────────────────────────────────────
@@ -123,9 +123,9 @@ const Solar = (() => {
    *
    * Zone mapping (both modes share the same twilight transition):
    *   sinElev ≥  0             → Day               (alpha = 0)
-   *   sinElev ∈ [0, −sin 6°]   → Civil twilight    (alpha 0 → 40)
-   *   sinElev ∈ [−sin6,−sin12] → Nautical          (alpha 40 → 92)
-   *   sinElev ∈ [−sin12,−sin18]→ Astronomical      (alpha 92 → 144)
+   *   sinElev ∈ [0, −sin 6°]   → Civil twilight    (alpha 0 → 171)
+   *   sinElev ∈ [−sin6,−sin12] → Nautical          (alpha 171 → 178)
+   *   sinElev ∈ [−sin12,−sin18]→ Astronomical      (alpha 178 → 182)
    *   sinElev ≤ −sin 18°       → Night             (alpha = 184)
    *
    *   Band only — additional polar-cap fade applied after the above:
