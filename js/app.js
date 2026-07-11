@@ -7,7 +7,8 @@
  * GeoJSON loading strategy (file:// compatible):
  *   window.COUNTRIES_GEO  — set by assets/data/countries.js
  *   window.TIMEZONES_GEO  — set by assets/data/timezones.js
- *   Both work on file://, http://, https:// via <script src>.
+ *   window.TECTONIC_BOUNDARIES_GEO — set by assets/data/tectonic_plates.js
+ *   All work on file://, http://, https:// via <script src>.
  */
 (async () => {
   'use strict';
@@ -29,6 +30,7 @@
   const MAPS_BASE     = 'assets/maps/';
   const COUNTRIES_URL = 'assets/data/countries.geojson';
   const TIMEZONES_URL = 'assets/data/timezones.geojson';
+  const TECTONIC_URL  = 'assets/data/tectonic_boundaries.geojson';
 
   // ── Map catalogue ────────────────────────────────────────────────
   const MAP_CATALOGUE = [
@@ -243,6 +245,10 @@
       const row = document.querySelector('.overlay-row[data-overlay="inclination"]');
       if (row) toggleOverlay(row);
     }
+    if (e.key === 'e' || e.key === 'E') {
+      const row = document.querySelector('.overlay-row[data-overlay="tectonic"]');
+      if (row) toggleOverlay(row);
+    }
   });
 
   // ── Map style cycling (s key, excludes IMAX) ──────────────────────
@@ -268,11 +274,23 @@
     loadGeoJSON(window.TIMEZONES_GEO,  TIMEZONES_URL).then(g => { setLoadingBar(80); return g; }),
   ]);
 
+  // Tectonic data — load boundaries GeoJSON, labels are inlined
+  let tectonicData = null;
+  const tectonicBoundaries = await loadGeoJSON(
+    window.TECTONIC_BOUNDARIES_GEO, TECTONIC_URL
+  );
+  if (tectonicBoundaries) {
+    tectonicData = {
+      boundaries: tectonicBoundaries,
+      labels: window.TECTONIC_LABELS || [],
+    };
+  }
+
   setLoadingText('Rendering…');
   setLoadingBar(92);
   await new Promise(resolve => requestAnimationFrame(resolve));
 
-  Renderer.init(mapImage, countries, timezones);
+  Renderer.init(mapImage, countries, timezones, tectonicData);
   Inclination.setData(countries);
   setLoadingBar(100);
 
@@ -286,6 +304,12 @@
   if (!timezones) {
     const tzRow = document.querySelector('.overlay-row[data-overlay="timezones"]');
     if (tzRow) { tzRow.style.opacity = '0.3'; tzRow.style.cursor = 'not-allowed'; tzRow.onclick = null; }
+  }
+
+  // Disable Tectonic overlay if no data
+  if (!tectonicData) {
+    const tcRow = document.querySelector('.overlay-row[data-overlay="tectonic"]');
+    if (tcRow) { tcRow.style.opacity = '0.3'; tcRow.style.cursor = 'not-allowed'; tcRow.onclick = null; }
   }
 
   // Background: probe which map files exist and mark unavailable ones

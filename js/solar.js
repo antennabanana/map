@@ -37,10 +37,9 @@ const Solar = (() => {
 
   // Shadow opacity at each zone boundary.
   // NIGHT_ALPHA = 184 (72 % of 255) is the maximum — full night.
-  // Intermediate values create four perceptually distinct bands.
-  const ALPHA_CIVIL    = Math.round(NIGHT_ALPHA * 0.93);  // 171 — visible blue haze
-  const ALPHA_NAUTICAL = Math.round(NIGHT_ALPHA * 0.97);  // 178 — clearly dusky
-  const ALPHA_ASTRO    = Math.round(NIGHT_ALPHA * 0.99);  // 182 — dark, stars visible
+  const ALPHA_CIVIL    = Math.round(NIGHT_ALPHA * 0.93);  // 171
+  const ALPHA_NAUTICAL = Math.round(NIGHT_ALPHA * 0.97);  // 178
+  const ALPHA_ASTRO    = Math.round(NIGHT_ALPHA * 0.99);  // 182
   // Full night → NIGHT_ALPHA = 184 — deepest shadow
 
   /* ─────────────────────────────────────────────────────────────
@@ -193,11 +192,12 @@ const Solar = (() => {
           : rowBase + rowFactor * cosLonDiff[x];
 
         let alpha;
-        if (shadowValue >= 0) {
+        if (shadowValue >= 0.3) {
           alpha = 0;
 
         } else if (shadowValue >= -SIN_CIVIL) {
-          const t = -shadowValue / SIN_CIVIL;
+          const range = SIN_CIVIL + 0.3;
+          const t = (0.3 - shadowValue) / range;
           alpha = (ALPHA_CIVIL * t * t * (3.0 - 2.0 * t) + 0.5) | 0;
 
         } else if (shadowValue >= -SIN_NAUTICAL) {

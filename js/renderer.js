@@ -8,12 +8,13 @@
  *   graticule-canvas — latitude/longitude reference lines
  *   timezone-canvas  — timezone boundaries
  *   political-canvas — country borders + labels
+ *   tectonic-canvas  — plate boundaries + names
  *
  * Public API:
- *   Renderer.init(mapImage, countriesGeo, timezonesGeo)
+ *   Renderer.init(mapImage, countriesGeo, timezonesGeo, tectonicGeo)
  *   Renderer.setMode('physical' | 'political')
  *   Renderer.setMapImage(img)
- *   Renderer.setOverlay(name, visible)   name: 'timezones' | 'named-parallels' | 'degree-grid'
+ *   Renderer.setOverlay(name, visible)   name: 'timezones' | 'tectonic' | 'named-parallels' | 'degree-grid'
  *   Renderer.setTerminatorMode('standard' | 'band')
  *   Renderer.setDebugOverlay(visible)
  */
@@ -27,11 +28,13 @@ const Renderer = (() => {
   let graticuleCanvas, graticuleCtx;
   let timezoneCanvas, timezoneCtx;
   let politicalCanvas, politicalCtx;
+  let tectonicCanvas, tectonicCtx;
 
   // ── Assets ──────────────────────────────────────────────────────
   let mapImage      = null;
   let countriesGeo  = null;
   let timezonesGeo  = null;
+  let tectonicGeo   = null;
 
   // ── Layout (physical pixels) ─────────────────────────────────────
   let DPR = 1, canvasW = 0, canvasH = 0;
@@ -48,6 +51,7 @@ const Renderer = (() => {
     'named-parallels': false,
     'degree-grid':     false,
     'twilight-bounds': false,
+    'tectonic':        false,
   };
   let shadowTimer = null;
   let debugVisible = false;
@@ -84,7 +88,7 @@ const Renderer = (() => {
     canvasW = Math.round(cssW * DPR);
     canvasH = Math.round(cssH * DPR);
 
-    [mapCanvas, shadowCanvas, debugCanvas, graticuleCanvas, timezoneCanvas, politicalCanvas].forEach(c => {
+    [mapCanvas, shadowCanvas, debugCanvas, graticuleCanvas, timezoneCanvas, politicalCanvas, tectonicCanvas].forEach(c => {
       c.width = canvasW; c.height = canvasH;
       c.style.width = cssW + 'px'; c.style.height = cssH + 'px';
     });
@@ -102,6 +106,7 @@ const Renderer = (() => {
     if (overlays['named-parallels'] || overlays['degree-grid']) drawGraticule();
     if (overlays['timezones'])                                   drawTimezones();
     if (currentMode === 'political')                             drawPolitical();
+    if (overlays['tectonic'])                                    drawTectonic();
   }
 
   // ── drawMap ───────────────────────────────────────────────────────
@@ -503,6 +508,57 @@ const Renderer = (() => {
       politicalCanvas.classList.add('visible');
   }
 
+  // ── drawTectonic ──────────────────────────────────────────────────
+  function drawTectonic() {
+    tectonicCtx.clearRect(0, 0, canvasW, canvasH);
+    const boundaries = tectonicGeo && tectonicGeo.boundaries;
+    const labels     = tectonicGeo && tectonicGeo.labels;
+    if (!boundaries || !projection) return;
+
+    tectonicCtx.save();
+    tectonicCtx.translate(mapX, mapY);
+
+    const pathGen = d3.geoPath(projection, tectonicCtx);
+
+    // Plate boundary lines — neon orange-red for contrast
+    tectonicCtx.beginPath();
+    pathGen(boundaries);
+    tectonicCtx.lineWidth   = Math.max(1.2, 1.5 * DPR);
+    tectonicCtx.strokeStyle = 'rgba(255,140,50,0.80)';
+    tectonicCtx.lineJoin    = 'round';
+    tectonicCtx.stroke();
+
+    // Glow pass (wider, semi-transparent)
+    tectonicCtx.beginPath();
+    pathGen(boundaries);
+    tectonicCtx.lineWidth   = Math.max(2.5, 3.5 * DPR);
+    tectonicCtx.strokeStyle = 'rgba(255,140,50,0.20)';
+    tectonicCtx.lineJoin    = 'round';
+    tectonicCtx.stroke();
+
+    // Plate name labels
+    if (labels) {
+      const fontSize = Math.round(8 * DPR);
+      tectonicCtx.font         = `bold ${fontSize}px "Courier New", monospace`;
+      tectonicCtx.textAlign    = 'center';
+      tectonicCtx.textBaseline = 'middle';
+
+      for (const label of labels) {
+        const pt = projection([label.lon, label.lat]);
+        if (!pt || pt[0] < 0 || pt[1] < 0 || pt[0] > mapW || pt[1] > mapH) continue;
+        tectonicCtx.lineWidth   = 2.5 * DPR;
+        tectonicCtx.strokeStyle = 'rgba(0,0,0,0.75)';
+        tectonicCtx.strokeText(label.name, pt[0], pt[1]);
+        tectonicCtx.fillStyle = 'rgba(255,200,120,0.90)';
+        tectonicCtx.fillText(label.name, pt[0], pt[1]);
+      }
+    }
+
+    tectonicCtx.restore();
+    if (!tectonicCanvas.classList.contains('visible'))
+      tectonicCanvas.classList.add('visible');
+  }
+
   // ── startShadowLoop ────────────────────────────────────────────────
   function startShadowLoop() {
     shadowTimer = setInterval(() => {
@@ -514,10 +570,11 @@ const Renderer = (() => {
   }
 
   // ── init ──────────────────────────────────────────────────────────
-  function init(mapImg, countries, timezones) {
+  function init(mapImg, countries, timezones, tectonic) {
     mapImage     = mapImg;
     countriesGeo = countries;
     timezonesGeo = timezones;
+    tectonicGeo  = tectonic;
 
     mapCanvas       = document.getElementById('map-canvas');
     shadowCanvas    = document.getElementById('shadow-canvas');
@@ -525,6 +582,7 @@ const Renderer = (() => {
     graticuleCanvas = document.getElementById('graticule-canvas');
     timezoneCanvas  = document.getElementById('timezone-canvas');
     politicalCanvas = document.getElementById('political-canvas');
+    tectonicCanvas  = document.getElementById('tectonic-canvas');
 
     mapCtx       = mapCanvas.getContext('2d', {alpha: false});
     shadowCtx    = shadowCanvas.getContext('2d');
@@ -532,6 +590,7 @@ const Renderer = (() => {
     graticuleCtx = graticuleCanvas.getContext('2d');
     timezoneCtx  = timezoneCanvas.getContext('2d');
     politicalCtx = politicalCanvas.getContext('2d');
+    tectonicCtx  = tectonicCanvas.getContext('2d');
 
     resize();
 
@@ -569,7 +628,7 @@ const Renderer = (() => {
   }
 
   /** Toggle an overlay layer on or off.
-   *  name: 'timezones' | 'named-parallels' | 'degree-grid'
+   *  name: 'timezones' | 'tectonic' | 'named-parallels' | 'degree-grid'
    */
   function setOverlay(name, visible) {
     overlays[name] = visible;
@@ -602,6 +661,16 @@ const Renderer = (() => {
       } else {
         timezoneCanvas.classList.remove('visible');
         setTimeout(() => { timezoneCanvas.style.display = 'none'; }, 350);
+      }
+    }
+
+    if (name === 'tectonic') {
+      if (visible) {
+        tectonicCanvas.style.display = 'block';
+        requestAnimationFrame(() => drawTectonic());
+      } else {
+        tectonicCanvas.classList.remove('visible');
+        setTimeout(() => { tectonicCanvas.style.display = 'none'; }, 350);
       }
     }
   }

@@ -23,6 +23,8 @@
     <canvas id="timezone-canvas"></canvas>
     <!-- 6. Country borders + labels (geopolitical mode) -->
     <canvas id="political-canvas"></canvas>
+    <!-- 7. Tectonic plate boundaries -->
+    <canvas id="tectonic-canvas"></canvas>
   </div>
 
   <!-- UI overlay ───────────────────────────────────────────────── -->
@@ -139,6 +141,14 @@
               </div>
             </div>
 
+            <div class="overlay-row" data-overlay="tectonic" tabindex="0" role="switch" aria-checked="false">
+              <div class="overlay-indicator">○</div>
+              <div class="overlay-text">
+                <div class="overlay-name">Tectonic plates</div>
+                <div class="overlay-sub"><kbd>e</kbd> — boundaries + names</div>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -216,7 +226,7 @@
 
   <!-- Attribution ─────────────────────────────────────────────── -->
   <div id="attribution">
-    Map: Natural Earth II — naturalearthdata.com &nbsp;|&nbsp; Boundaries: Natural Earth
+    Map: Natural Earth II — naturalearthdata.com &nbsp;|&nbsp; Boundaries: Natural Earth &nbsp;|&nbsp; Tectonics: PB2002 (P. Bird)
   </div>
 
   <!-- Loading screen ──────────────────────────────────────────── -->
@@ -234,6 +244,7 @@
   <!-- Static data as JS globals (works on file:// and http://) ── -->
   <script src="assets/data/countries.js"></script>
   <script src="assets/data/timezones.js"></script>
+  <script src="assets/data/tectonic_plates.js"></script>
 
   <!-- Application ─────────────────────────────────────────────── -->
   <script src="js/solar.js"></script>
